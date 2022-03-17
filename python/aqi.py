@@ -2,7 +2,7 @@
 # coding=utf-8
 # "DATASHEET": http://cl.ly/ekot
 # https://gist.github.com/kadamski/92653913a53baf9dd1a8
-from __future__ import print_function
+
 from re import A
 import serial, struct, sys, time, json, subprocess, datetime
 import board, adafruit_lps2x, adafruit_dht
@@ -24,13 +24,16 @@ ip_shelly_p = "192.168.0.1"
 ip_shelly_t = "192.168.0.1"
 pm25_limit = 30
 pm10_limit = 50
-shelly_p_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-shelly_t_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-if (shelly_p_init.response_code != 200 or shelly_t_init.response_code != 200):
-    print("Error in initializing shelly:")
-    print(shelly_p_init.text)
-    print(shelly_t_init.text)
-    #exit()
+
+try:
+    shelly_p_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
+    shelly_t_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
+    if (shelly_p_init.response_code != 200 or shelly_t_init.response_code != 200):
+        print("Error in initializing shelly:")
+        print(shelly_p_init.text)
+        print(shelly_t_init.text)
+except Exception as e:
+    print(e)
 
 
 # SDS011 configs
@@ -245,22 +248,24 @@ if __name__ == "__main__":
                 raise error
         
         # turn light bulb on if limits exceeded
-        if (pm25 > pm25_limit or pm10 > pm10_limit):
-            shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
-            shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
-            if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
-                print("############\nShelly error:")
-                print(shelly_p_resp.text)
-                print(shelly_t_resp.text)
-                print("#############")
-        else:
-            shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
-            shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
-            if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
-                print("############\nShelly error:")
-                print(shelly_p_resp.text)
-                print(shelly_t_resp.text)
-                print("#############")
+        try:
+            if (pm25 > pm25_limit or pm10 > pm10_limit):
+                shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
+                shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
+                if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
+                    print("Shelly error:")
+                    print(shelly_p_resp.text)
+                    print(shelly_t_resp.text)
+            else:
+                shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
+                shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
+                if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
+                    print("Shelly error:")
+                    print(shelly_p_resp.text)
+                    print(shelly_t_resp.text)
+        except Exception as e:
+            print("Shelly error:")
+            print(e)
 
         # save to sqlite3 db
         cur.execute('''INSERT INTO data (date,pm25,pm10,lps_temp,lps_pressure,dht_temp,dht_humidity) 
