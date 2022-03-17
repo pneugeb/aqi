@@ -8,7 +8,7 @@
     <link rel='stylesheet' href='style.css'>
   </head>
   <body>
-    <div class="container">
+    <div class="container-history">
       <h1>AQI history</h1>
       <p class='time' id="time"></p>
       <table>
@@ -19,6 +19,10 @@
             <th>aqi<br/>(pm2.5)</th>
             <th>pm10<br/>(µg/m³)</th>
             <th>aqi<br/>(pm10)</th>
+            <th>temp<br/>(°C)</th>
+            <th>pressure<br/>(hPa)</th>
+            <th>temp<br/>(°C)</th>
+            <th>humidity<br/>(%)</th>
           </tr>
         </thead>
         <tbody id="historyTable">
@@ -30,7 +34,7 @@
         <a href="#" onclick="showNextHistory()">newer</a>
       </div>
       <div class="link">
-        <a href="/">current status</a>
+        <a href="./index.html">current status</a>
       </div>
     </div>
   </body>

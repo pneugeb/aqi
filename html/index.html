@@ -4,22 +4,47 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AQI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato&display=swap" rel="stylesheet">
     <script src="aqi.js"></script>
     <link rel='stylesheet' href='style.css'>
   </head>
+  <!-- start web-server with "python -m http.server" or SimpleHTTPServer-->
   <body>
     <div class="container">
-      <h1>AQI</h1>
+      <h1>smokepi - AQI</h1>
       <p class='time' id="time"></p>
+      <div class="time" id='db_size'></div>
       <div class='aqi-container' id="containerPm25">
-          <div class='aqi-label'>AQI (PM2.5)</div>
-          <div class='aqi' id="aqiPm25"></div>
+          <div class='aqi-label'>NOVA (PM2.5)</div>
+          <div class='nova' id="aqiPm25"></div>
           <div class='pm-label' id="pm25"></div>
       </div>
       <div class='aqi-container' id="containerPm10">
-          <div class='aqi-label'>AQI (PM10)</div>
-          <div class='aqi' id="aqiPm10"></div>
+          <div class='aqi-label'>NOVA (PM10)</div>
+          <div class='nova' id="aqiPm10"></div>
           <div class='pm-label' id="pm10"></div>
+      </div>
+      <div class='aqi-container' id="containerPm10">
+        <div class='aqi-label'>LPS25 Temperature</div>
+        <div class='aqi' id="aqiLpsTemp"></div>
+        <div class='pm-label' id="lpsTemp"></div>
+      </div>
+      <div class='aqi-container' id="containerPm10">
+        <div class='aqi-label'>LPS25 Pressure</div>
+        <div class='aqi' id="aqiLpsPressure"></div>
+        <div class='pm-label' id="lpsPressure"></div>
+      </div>
+      <div class='aqi-container' id="containerPm10">
+        <div class='aqi-label'>DHT Temperature</div>
+        <div class='aqi' id="aqiDhtTemp"></div>
+        <div class='pm-label' id="dhtTemp"></div>
+      </div>
+      <div class='aqi-container' id="containerPm10">
+        <div class='aqi-label'>DHT Humidity</div>
+        <div class='aqi' id="aqiDhtHumidity"></div>
+        <div class='pm-label' id="dhtHumidity"></div>
       </div>
       <div class="link">
         <a href="./history.html">history</a>

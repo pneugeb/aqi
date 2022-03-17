@@ -36,6 +36,7 @@ function getHistoryData() {
 function updateHtml(data) {
   let aqiPm25 = calcAQIpm25(data.pm25);
   let aqiPm10 = calcAQIpm10(data.pm10);
+  let formattedDbSize = calcDBsize(data.db_size)
 
   //update HTML
   document.getElementById("time").innerHTML = data.time;
@@ -43,6 +44,15 @@ function updateHtml(data) {
   document.getElementById("aqiPm10").innerHTML = aqiPm10;
   document.getElementById("pm25").innerHTML = "(PM2.5: " + data.pm25 + " µg/m³)";
   document.getElementById("pm10").innerHTML = "(PM10: " + data.pm10 + " µg/m³)";
+  document.getElementById("aqiLpsTemp").innerHTML = data.lps_temp;
+  document.getElementById("aqiLpsPressure").innerHTML = data.lps_pressure;
+  document.getElementById("lpsTemp").innerHTML = "(Temp: " + data.lps_temp + " °C)";
+  document.getElementById("lpsPressure").innerHTML = "(Pressure: " + data.lps_pressure + " hPa)";
+  document.getElementById("aqiDhtTemp").innerHTML = data.dht_temp;
+  document.getElementById("aqiDhtHumidity").innerHTML = data.dht_humidity;
+  document.getElementById("dhtTemp").innerHTML = "(Temp: " + data.dht_temp + " °C)";
+  document.getElementById("dhtHumidity").innerHTML = "(Humidity: " + data.dht_humidity + " %)";
+  document.getElementById("db_size").innerHTML = "Database size: " + formattedDbSize;
 
   //set colors
   colorsPm25 = getColor(aqiPm25);
@@ -88,6 +98,22 @@ function updateHistoryHtml() {
     let eAqiPm10 = document.createElement("td");
     eAqiPm10.innerHTML = aqiPm10;
     eRow.append(eAqiPm10);
+
+    let eLpsTemp = document.createElement("td");
+    eLpsTemp.innerHTML = data.lps_temp;
+    eRow.append(eLpsTemp);
+
+    let eLpsPressure = document.createElement("td");
+    eLpsPressure.innerHTML = data.lps_pressure;
+    eRow.append(eLpsPressure);
+
+    let eDhtTemp = document.createElement("td");
+    eDhtTemp.innerHTML = data.dht_temp;
+    eRow.append(eDhtTemp);
+
+    let eDhtHumidity = document.createElement("td");
+    eDhtHumidity.innerHTML = data.dht_humidity;
+    eRow.append(eDhtHumidity);
 
     let colorsPm25 = getColor(aqiPm25);
     let colorsPm10 = getColor(aqiPm10);
@@ -226,4 +252,21 @@ function calcAQIpm10(pm10) {
 		aqipm10 = ((aqi8 - aqi7) / (pm8 - pm7)) * (pm10 - pm7) + aqi7;
 	}
 	return aqipm10.toFixed(0);
+}
+
+function calcDBsize(dbSize) {
+  switch (true) {
+    case ((dbSize/1024) < 1):
+      size = (dbSize) + "B"
+      break;
+    case ((dbSize/(1024**2)) < 1):
+      size = (dbSize/(1024**1)).toFixed(2) + "KiB"
+      break;
+    case ((dbSize/(1024**3)) < 1):
+      size = (dbSize/(1024**2)).toFixed(2) + "MiB"
+      break;
+    default:
+      size = (dbSize/(1024**3)).toFixed(2) + "GiB"
+  }
+  return size;
 }
