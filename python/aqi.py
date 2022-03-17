@@ -211,17 +211,22 @@ if __name__ == "__main__":
         
         # get LPS25
         print("LPS25:")
-        lps_temp = lps.temperature
-        lps_pressure = lps.pressure
-        print(
-            "Temp: {:.1f} C    Pressure: {:.1f} hPa".format(
-                lps_temp, lps_pressure
+        # try 2x bc first one is sometimes way off
+        for x in range(2):
+            lps_temp = lps.temperature
+            lps_pressure = lps.pressure
+            print(
+                "Temp: {:.1f} C    Pressure: {:.1f} hPa".format(
+                    lps_temp, lps_pressure
+                    )
                 )
-            )
+            time.sleep(1)
 
         # get DHT
         print("DHT:")
         # try 5 times if can't read
+        dht_temp = 0
+        dht_humidity = 0
         for x in range(5):
             try:
                 # Print the values to the serial port
@@ -232,13 +237,10 @@ if __name__ == "__main__":
                         dht_temp, dht_humidity
                     )
                 )
-                break
 
             except RuntimeError as error:
                 # Errors happen fairly often, DHT's are hard to read, just keep going
                 print(error.args[0])
-                dht_temp = 0
-                dht_humidity = 0
                 time.sleep(1)
                 continue
             except Exception as error:
