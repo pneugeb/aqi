@@ -39,7 +39,7 @@ except Exception as e:
 # SDS011 configs
 #
 # 0 == off, else == on
-DEBUG = 0
+DEBUG = 1
 # Data byte number for each setting, is used to let sensor know which setting we want to tweak
 CMD_MODE = 2
 CMD_QUERY_DATA = 4
@@ -99,7 +99,7 @@ except Exception as e:
 #
 # print all data d in hex
 def dump(d, prefix=''):
-    print(prefix + ' '.join(x.encode('hex') for x in d))
+    print(prefix + ' '.join(x.encode('utf-8').hex() for x in d))
 
 # build command to give to port
 def construct_command(cmd, data=[]):
@@ -111,8 +111,10 @@ def construct_command(cmd, data=[]):
     ret += "\xff\xff" + chr(checksum) + "\xab"
 
     if DEBUG:
+        print("construct_command")
         dump(ret, '> ')
-    return ret
+    ret_b = ret.encode('raw_unicode_escape')
+    return ret_b
 
 # processes input data d and returns pm25 and pm10
 def process_data(d):
@@ -120,6 +122,8 @@ def process_data(d):
     pm25 = r[0]/10.0
     pm10 = r[1]/10.0
     checksum = sum(ord(v) for v in d[2:8])%256
+    if DEBUG:
+        print("process_data")
     return [pm25, pm10]
     #print("PM 2.5: {} μg/m^3  PM 10: {} μg/m^3 CRC={}".format(pm25, pm10, "OK" if (checksum==r[2] and r[3]==0xab) else "NOK"))
 
@@ -127,6 +131,8 @@ def process_data(d):
 def process_version(d):
     r = struct.unpack('<BBBHBB', d[3:])
     checksum = sum(ord(v) for v in d[2:8])%256
+    if DEBUG:
+        print("process_version")
     print("Y: {}, M: {}, D: {}, ID: {}, CRC={}".format(r[0], r[1], r[2], hex(r[3]), "OK" if (checksum==r[4] and r[5]==0xab) else "NOK"))
 
 # read response from serial port
@@ -138,16 +144,21 @@ def read_response():
     d = ser.read(size=9)
 
     if DEBUG:
+        print("read_response")
         dump(d, '< ')
     return byte + d
 
 # multiple commands to interact with sensor firmware
 #
 def cmd_set_mode(mode=MODE_QUERY):
+    if DEBUG:
+        print("cmd_set_mode " + mode)
     ser.write(construct_command(CMD_MODE, [0x1, mode]))
     read_response()
 
 def cmd_query_data():
+    if DEBUG:
+        print("cmd_query_data")
     ser.write(construct_command(CMD_QUERY_DATA))
     d = read_response()
     values = []
@@ -157,20 +168,28 @@ def cmd_query_data():
 
 # sleep = 0 -> work; else -> sleep
 def cmd_set_sleep(sleep):
+    if DEBUG:
+        print("cmd_set_sleep " + sleep)
     mode = 0 if sleep else 1
     ser.write(construct_command(CMD_SLEEP, [0x1, mode]))
     read_response()
 
 def cmd_set_working_period(period):
+    if DEBUG:
+        print("cmd_set_working_period " + period)
     ser.write(construct_command(CMD_WORKING_PERIOD, [0x1, period]))
     read_response()
 
 def cmd_firmware_ver():
+    if DEBUG:
+        print("cmd_firmware_ver")
     ser.write(construct_command(CMD_FIRMWARE))
     d = read_response()
     process_version(d)
 
 def cmd_set_id(id):
+    if DEBUG:
+        print("cmd_set_id " + id)
     id_h = (id>>8) % 256
     id_l = id % 256
     ser.write(construct_command(CMD_DEVICE_ID, [0]*10+[id_l, id_h]))
