@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>smokepi log</title>
+    <script src="aqi.js"></script>
+    <link rel='stylesheet' href='style.css'>
+  </head>
+  <body>
+    <div class="container-history">
+      <h1>smokepi log</h1>
+      <!--<p class='time' id="time"></p>-->
+      <div class="link">
+        <a href="./index.html">current status</a> | <a href="./history.html">history</a>
+      </div>
+      <div class="log-box">
+        <div class="log-text" id="log"></div>
+      </div>
+    </div>
+  </body>
+  <script type="text/javascript">
+    getLogData();
+    setInterval(getLogData, 5000);
+  </script>
+</html>

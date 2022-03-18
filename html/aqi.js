@@ -33,6 +33,17 @@ function getHistoryData() {
   })
 }
 
+function getLogData() {
+  fetch("aqi.log").then(response => {
+    response.text().then(data => {
+      console.log(data)
+      updateLogHtml(data);
+    })
+  }).catch(err => {
+    console.log(err);
+  })
+}
+
 function updateHtml(data) {
   let aqiPm25 = calcAQIpm25(data.pm25);
   let aqiPm10 = calcAQIpm10(data.pm10);
@@ -151,6 +162,10 @@ function showNextHistory() {
   }
 
   updateHistoryHtml();
+}
+
+function updateLogHtml(logs) {
+  document.getElementById("log").innerHTML = logs;
 }
 
 function getColor(aqi) {
