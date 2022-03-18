@@ -27,12 +27,17 @@ pm10_limit = 50
 
 print("Initializing shelly...")
 try:
-    shelly_p_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-    shelly_t_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-    if (shelly_p_init.status_code != 200 or shelly_t_init.status_code != 200):
+    shelly_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
+    if (shelly_init.status_code != 200):
         print("Error in initializing shelly:")
-        print("shelly-p: " + shelly_p_init.text)
-        print("shelly-t: " + shelly_t_init.text)
+        print("shelly-p: " + shelly_init.text)
+except Exception as e:
+    print(e)
+try:
+    shelly_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
+    if (shelly_init.status_code != 200):
+        print("Error in initializing shelly:")
+        print("shelly-t: " + shelly_init.text)
 except Exception as e:
     print(e)
 
@@ -220,7 +225,7 @@ if __name__ == "__main__":
     cmd_set_working_period(PERIOD_CONTINUOUS)
     cmd_set_mode(MODE_QUERY);
     while True:
-        print(time.strftime("%d.%m.%Y %H:%M:%S"))
+        print("\nNew readout starting at " + str(time.strftime("%H:%M:%S")))
         # at night, don't run to save sensor life 
         if (datetime.datetime.now().hour >= active_hour_end):
             print("Sleeping for " + (sleeptime/3600) + "h")
@@ -287,29 +292,45 @@ if __name__ == "__main__":
                 print("==========")
                 print(error)
                 # dhtDevice.exit() would lead into future errors if loop continues
-                print("DHT exited\n==========")
+                print("==========")
                 time.sleep(1)
             time.sleep(1)
         
         # turn light bulb on if limits exceeded
-        try:
-            if (pm25 > pm25_limit or pm10 > pm10_limit):
-                shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
-                shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
-                if (shelly_p_resp.status_code != 200 or shelly_t_resp.status_code != 200):
+        if (pm25 > pm25_limit or pm10 > pm10_limit):
+            try:
+                shelly_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
+                if (shelly_resp.status_code != 200):
                     print("Shelly error:")
-                    print("shelly-p: " + shelly_p_resp.text)
-                    print("shelly-t: " + shelly_t_resp.text)
-            else:
-                shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
-                shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_p_resp.status_code != 200 or shelly_t_resp.status_code != 200):
+                    print("shelly-p: " + shelly_resp.text)
+            except Exception as e:
+                print("shelly-p exception:")
+                print(e)
+            try:
+                shelly_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
+                if (shelly_resp.status_code != 200):
                     print("Shelly error:")
-                    print("shelly-p: " + shelly_p_resp.text)
-                    print("shelly-t: " + shelly_t_resp.text)
-        except Exception as e:
-            print("Shelly error:")
-            print(e)
+                    print("shelly-t: " + shelly_resp.text)
+            except Exception as e:
+                print("shelly-t exception:")
+                print(e)
+        else:
+            try:
+                shelly_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
+                if (shelly_resp.status_code != 200):
+                    print("Shelly error:")
+                    print("shelly-p: " + shelly_resp.text)
+            except Exception as e:
+                print("shelly-p exception:")
+                print(e)
+            try:
+                shelly_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
+                if (shelly_resp.status_code != 200):
+                    print("Shelly error:")
+                    print("shelly-t: " + shelly_resp.text)
+            except Exception as e:
+                print("shelly-t exception:")
+                print(e)
 
         # save to sqlite3 db
         cur.execute('''INSERT INTO data (date,pm25,pm10,lps_temp,lps_pressure,dht_temp,dht_humidity) 
@@ -317,8 +338,9 @@ if __name__ == "__main__":
             (pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
             )
         con.commit()
-        print("pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity")
-        print(pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
+        if DEBUG:
+            print("pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity")
+            print(pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
 
         # get db size
         db_size = os.path.getsize("aqi.db")
