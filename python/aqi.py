@@ -25,13 +25,14 @@ ip_shelly_t = "192.168.0.1"
 pm25_limit = 30
 pm10_limit = 50
 
+print("Initializing shelly...")
 try:
     shelly_p_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
     shelly_t_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-    if (shelly_p_init.response_code != 200 or shelly_t_init.response_code != 200):
+    if (shelly_p_init.status_code != 200 or shelly_t_init.status_code != 200):
         print("Error in initializing shelly:")
-        print(shelly_p_init.text)
-        print(shelly_t_init.text)
+        print("shelly-p: " + shelly_p_init.text)
+        print("shelly-t: " + shelly_t_init.text)
 except Exception as e:
     print(e)
 
@@ -39,7 +40,7 @@ except Exception as e:
 # SDS011 configs
 #
 # 0 == off, else == on
-DEBUG = 1
+DEBUG = 0
 # Data byte number for each setting, is used to let sensor know which setting we want to tweak
 CMD_MODE = 2
 CMD_QUERY_DATA = 4
@@ -63,9 +64,12 @@ MQTT_TOPIC = ''
 ser = serial.Serial()
 ser.port = "/dev/ttyUSB0"
 ser.baudrate = 9600
+#print(ser)
 
 ser.open()
-ser.flushInput()
+# ser.flushInput() depricated, now:
+ser.reset_input_buffer()
+
 
 byte, data = 0, ""
 
@@ -99,7 +103,7 @@ except Exception as e:
 #
 # print all data d in hex
 def dump(d, prefix=''):
-    print(prefix + ' '.join(x.encode('utf-8').hex() for x in d))
+    print(prefix + ' '.join(str(x).encode('utf-8').hex() for x in d))
 
 # build command to give to port
 def construct_command(cmd, data=[]):
@@ -121,7 +125,8 @@ def process_data(d):
     r = struct.unpack('<HHxxBB', d[2:])
     pm25 = r[0]/10.0
     pm10 = r[1]/10.0
-    checksum = sum(ord(v) for v in d[2:8])%256
+    # checksum = sum(ord(v) for v in d[2:8])%256
+    checksum = sum(v for v in d[2:8])%256
     if DEBUG:
         print("process_data")
     return [pm25, pm10]
@@ -130,7 +135,8 @@ def process_data(d):
 # print software version; used in cmd_firmware_ver()
 def process_version(d):
     r = struct.unpack('<BBBHBB', d[3:])
-    checksum = sum(ord(v) for v in d[2:8])%256
+    #checksum = sum(ord(v) for v in d[2:8])%256
+    checksum = sum(v for v in d[2:8])%256
     if DEBUG:
         print("process_version")
     print("Y: {}, M: {}, D: {}, ID: {}, CRC={}".format(r[0], r[1], r[2], hex(r[3]), "OK" if (checksum==r[4] and r[5]==0xab) else "NOK"))
@@ -138,7 +144,7 @@ def process_version(d):
 # read response from serial port
 def read_response():
     byte = 0
-    while byte != "\xaa":
+    while byte != b"\xaa":
         byte = ser.read(size=1)
 
     d = ser.read(size=9)
@@ -152,7 +158,7 @@ def read_response():
 #
 def cmd_set_mode(mode=MODE_QUERY):
     if DEBUG:
-        print("cmd_set_mode " + mode)
+        print("cmd_set_mode " + str(mode))
     ser.write(construct_command(CMD_MODE, [0x1, mode]))
     read_response()
 
@@ -161,22 +167,25 @@ def cmd_query_data():
         print("cmd_query_data")
     ser.write(construct_command(CMD_QUERY_DATA))
     d = read_response()
+    if DEBUG:
+        print(d)
     values = []
-    if d[1] == "\xc0":
+    # for some reason d[1] is viewed as decimal int not hex; 192 == \xc0
+    if d[1] == 192:
         values = process_data(d)
     return values
 
 # sleep = 0 -> work; else -> sleep
 def cmd_set_sleep(sleep):
     if DEBUG:
-        print("cmd_set_sleep " + sleep)
+        print("cmd_set_sleep " + str(sleep))
     mode = 0 if sleep else 1
     ser.write(construct_command(CMD_SLEEP, [0x1, mode]))
     read_response()
 
 def cmd_set_working_period(period):
     if DEBUG:
-        print("cmd_set_working_period " + period)
+        print("cmd_set_working_period " + str(period))
     ser.write(construct_command(CMD_WORKING_PERIOD, [0x1, period]))
     read_response()
 
@@ -189,7 +198,7 @@ def cmd_firmware_ver():
 
 def cmd_set_id(id):
     if DEBUG:
-        print("cmd_set_id " + id)
+        print("cmd_set_id " + str(id))
     id_h = (id>>8) % 256
     id_l = id % 256
     ser.write(construct_command(CMD_DEVICE_ID, [0]*10+[id_l, id_h]))
@@ -204,17 +213,22 @@ def pub_mqtt(jsonrow):
 
 # main
 if __name__ == "__main__":
+    print("Starting...")
     cmd_set_sleep(0)
+    print("firmware:")
     cmd_firmware_ver()
     cmd_set_working_period(PERIOD_CONTINUOUS)
     cmd_set_mode(MODE_QUERY);
     while True:
+        print(time.strftime("%d.%m.%Y %H:%M:%S"))
         # at night, don't run to save sensor life 
         if (datetime.datetime.now().hour >= active_hour_end):
             print("Sleeping for " + (sleeptime/3600) + "h")
             time.sleep(sleeptime)
         # wake SDS011 up
         cmd_set_sleep(0)
+        pm25 = 0
+        pm10 = 0
         # get NOVA SDS011 pm2.5 and pm10
         print("NOVA SDS011:")
         for t in range(15):
@@ -230,16 +244,18 @@ if __name__ == "__main__":
         
         # get LPS25
         print("LPS25:")
+        lps_temp = 0
+        lps_pressure = 0
         # try 2x bc first one is sometimes way off
         for x in range(2):
-            lps_temp = lps.temperature
-            lps_pressure = lps.pressure
+            lps_temp = float("{:.2f}".format(lps.temperature))
+            lps_pressure = float("{:.2f}".format(lps.pressure))
             print(
-                "Temp: {:.1f} C    Pressure: {:.1f} hPa".format(
+                "Temp: {:.2f} C    Pressure: {:.2f} hPa".format(
                     lps_temp, lps_pressure
                     )
                 )
-            time.sleep(1)
+            time.sleep(2)
 
         # get DHT
         print("DHT:")
@@ -262,28 +278,35 @@ if __name__ == "__main__":
                 print(error.args[0])
                 time.sleep(1)
                 continue
+            except TypeError as error:
+                # happens if the first readout goes worng
+                print(error)
+                time.sleep(1)
+                continue
             except Exception as error:
-                dhtDevice.exit()
-                con.commit()
-                con.close()
-                raise error
+                print("==========")
+                print(error)
+                # dhtDevice.exit() would lead into future errors if loop continues
+                print("DHT exited\n==========")
+                time.sleep(1)
+            time.sleep(1)
         
         # turn light bulb on if limits exceeded
         try:
             if (pm25 > pm25_limit or pm10 > pm10_limit):
                 shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
                 shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
-                if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
+                if (shelly_p_resp.status_code != 200 or shelly_t_resp.status_code != 200):
                     print("Shelly error:")
-                    print(shelly_p_resp.text)
-                    print(shelly_t_resp.text)
+                    print("shelly-p: " + shelly_p_resp.text)
+                    print("shelly-t: " + shelly_t_resp.text)
             else:
                 shelly_p_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
                 shelly_t_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_p_resp.response_code != 200 or shelly_t_resp.response_code != 200):
+                if (shelly_p_resp.status_code != 200 or shelly_t_resp.status_code != 200):
                     print("Shelly error:")
-                    print(shelly_p_resp.text)
-                    print(shelly_t_resp.text)
+                    print("shelly-p: " + shelly_p_resp.text)
+                    print("shelly-t: " + shelly_t_resp.text)
         except Exception as e:
             print("Shelly error:")
             print(e)
@@ -298,7 +321,7 @@ if __name__ == "__main__":
         print(pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
 
         # get db size
-        db_size = os.path.getsize("test.db")
+        db_size = os.path.getsize("aqi.db")
 
         # load stored data for website
         try:
