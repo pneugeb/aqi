@@ -5,10 +5,12 @@ const aqiHist = {
   idxMax: 1
 };
 
-//const log_dir = "/var/www/html/logs/";
+//const log_dir = "/logs/";
 const log_dir = "";
 
-const max_num_logs = 3;
+const max_num_logs = 24;
+
+let log_index = 0;
 
 function getData() {
   fetch("aqi.json").then(response => {
@@ -44,7 +46,7 @@ function log_page_back() {
     log_index = 0;
   }
   //console.log("page back " + log_index);
-  getLogData(log_index);
+  getLogData();
 }
 
 function log_page_forward() {
@@ -53,10 +55,10 @@ function log_page_forward() {
     log_index = max_num_logs - 1;
   }
   //console.log("page forward " + log_index);
-  getLogData(log_index);
+  getLogData();
 }
 
-function getLogData(log_index) {
+function getLogData() {
   //console.log("setting log_path, index: " + log_index);
   switch(log_index) {
     case 0:
