@@ -15,13 +15,22 @@
         <a href="./index.html">current status</a> | <a href="./history.html">history</a>
       </div>
       <div class="log-info-text">(updates automatically every 5s)</div>
+      <div class="log-info-text" id="logName"></div>
+      <div class="log-info-text">
+        <a class="log-back-forward" onclick="log_page_back()">back</a> | <a class="log-back-forward" onclick="log_page_forward()">next</a>
+      </div>
       <div class="log-box">
         <div class="log-text" id="log"></div>
+      </div>
+      <div class="log-info-text">
+        <a class="log-back-forward" onclick="log_page_back()">back</a> | <a class="log-back-forward" onclick="log_page_forward()">next</a>
       </div>
     </div>
   </body>
   <script type="text/javascript">
-    getLogData();
-    setInterval(getLogData, 5000);
+    // log_page_back
+    let log_index = 0;
+    getLogData(log_index);
+    setInterval(getLogData(log_index), 5000);
   </script>
 </html>

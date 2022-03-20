@@ -1,2 +1,2 @@
 /html/aqi.json
-html/aqi.log
+*.log*

@@ -5,6 +5,11 @@ const aqiHist = {
   idxMax: 1
 };
 
+//const log_dir = "/var/www/html/logs/";
+const log_dir = "";
+
+const max_num_logs = 3;
+
 function getData() {
   fetch("aqi.json").then(response => {
     response.json().then(data => {
@@ -33,10 +38,36 @@ function getHistoryData() {
   })
 }
 
-function getLogData() {
-  fetch("aqi.log").then(response => {
+function log_page_back() {
+  log_index--;
+  if(log_index < 0) {
+    log_index = 0;
+  }
+  //console.log("page back " + log_index);
+  getLogData(log_index);
+}
+
+function log_page_forward() {
+  log_index++;
+  if(log_index > (max_num_logs - 1)) {
+    log_index = max_num_logs - 1;
+  }
+  //console.log("page forward " + log_index);
+  getLogData(log_index);
+}
+
+function getLogData(log_index) {
+  //console.log("setting log_path, index: " + log_index);
+  switch(log_index) {
+    case 0:
+      log_path = log_dir + "aqi.log";
+      break;
+    default:
+      log_path = log_dir + "aqi.log." + log_index;
+  }
+  fetch(log_path).then(response => {
     response.text().then(data => {
-      console.log(data)
+      //console.log(data)
       updateLogHtml(data);
     })
   }).catch(err => {
@@ -165,6 +196,14 @@ function showNextHistory() {
 }
 
 function updateLogHtml(logs) {
+  document.getElementById("logName").innerHTML = (function() {
+    switch(log_index) {
+      case 0:
+        return "aqi.log";
+      default:
+        return "aqi.log." + log_index;
+    }
+  })();
   document.getElementById("log").innerHTML = logs;
 }
 

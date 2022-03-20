@@ -37,7 +37,13 @@ html  {
 
 .log-info-text {
     text-align: center;
-    margin-bottom: 10px;
+    margin-top: 10px;
+}
+
+.log-back-forward {
+    color: -webkit-link;
+    cursor: pointer;
+    text-decoration: underline;
 }
 
 .nova {
