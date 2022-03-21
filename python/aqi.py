@@ -151,7 +151,7 @@ def process_version(d):
 def read_response():
     if DEBUG:
         print("read_response")
-        print("while byte != b'\xaa':")
+        print("while byte != b'\\xaa':")
     byte = 0
     while byte != b"\xaa":
         if DEBUG:
@@ -221,6 +221,26 @@ def pub_mqtt(jsonrow):
     with subprocess.Popen(cmd, shell=False, bufsize=0, stdin=subprocess.PIPE).stdin as f:
         json.dump(jsonrow, f)
 
+def turn_shelly_off(shelly_ip):
+    try:
+        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=off", auth=shelly_login)
+        if (shelly_resp.status_code != 200):
+            print(str(shelly_ip) + ": " + shelly_resp.text)
+        else:
+            print(str(shelly_ip) + ": turned off") 
+    except Exception as e:
+        print(str(shelly_ip) + ":\n" + str(e))
+
+def turn_shelly_on(shelly_ip):
+    try:
+        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=on", auth=shelly_login)
+        if (shelly_resp.status_code != 200):
+            print(str(shelly_ip) + ": " + shelly_resp.text)
+        else:
+            print(str(shelly_ip) + ": turned on") 
+    except Exception as e:
+        print(str(shelly_ip) + ":\n" + str(e))
+
 # main
 if __name__ == "__main__":
     print("Starting...")
@@ -234,25 +254,14 @@ if __name__ == "__main__":
         # at night, don't run to save sensor life 
         dt_now = datetime.datetime.now()
         if (dt_now.hour >= active_hour_end or dt_now.hour < active_hour_start):
+            print("Going to sleep...")
+            print("sleeping 30s to prevent sensor clutter")
+            time.sleep(30)
+            print("Turning off all shelly lamps...")
+            turn_shelly_off(ip_shelly_p)
+            turn_shelly_off(ip_shelly_t)
             print("Putting SDS011 to sleep...")
             cmd_set_sleep(1)
-            print("Turning off all shelly lamps...")
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-p: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-p exception:")
-                print(e)
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-t: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-t exception:")
-                print(e)
             # calculates seconds till next morning start time
             sec_till_start_today = int((datetime.datetime(dt_now.year, dt_now.month, dt_now.day, active_hour_start) - dt_now).total_seconds())
             sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, dt_now.month, (dt_now.day + 1), active_hour_start) - dt_now).total_seconds())
@@ -264,15 +273,18 @@ if __name__ == "__main__":
         cmd_set_sleep(0)
         pm25 = 0
         pm10 = 0
+        # give it 30s to get going
+        # enable, test first of values change after a certain period
+        # time.sleep(30) 
         # get NOVA SDS011 pm2.5 and pm10
         print("NOVA SDS011:")
         for t in range(15):
-            values = cmd_query_data();
+            values = cmd_query_data()
             if values is not None and len(values) == 2:
                 pm25 = values[0]
                 pm10 = values[1]
                 print("PM2.5: ", pm25, ", PM10: ", pm10)
-                time.sleep(2)
+                time.sleep(4)
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
@@ -328,39 +340,11 @@ if __name__ == "__main__":
         
         # turn light bulb on if limits exceeded
         if (pm25 > pm25_limit or pm10 > pm10_limit):
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=on", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-p: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-p exception:")
-                print(e)
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=on", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-t: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-t exception:")
-                print(e)
+            turn_shelly_on(ip_shelly_p)
+            turn_shelly_on(ip_shelly_t)
         else:
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_p+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-p: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-p exception:")
-                print(e)
-            try:
-                shelly_resp = requests.get("http://"+ip_shelly_t+"/light/0?turn=off", auth=shelly_login)
-                if (shelly_resp.status_code != 200):
-                    print("Shelly error:")
-                    print("shelly-t: " + shelly_resp.text)
-            except Exception as e:
-                print("shelly-t exception:")
-                print(e)
+            turn_shelly_off(ip_shelly_p)
+            turn_shelly_off(ip_shelly_t)
 
         # save to sqlite3 db
         cur.execute('''INSERT INTO data (date,pm25,pm10,lps_temp,lps_pressure,dht_temp,dht_humidity) 
