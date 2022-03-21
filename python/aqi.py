@@ -111,6 +111,9 @@ def dump(d, prefix=''):
 
 # build command to give to port
 def construct_command(cmd, data=[]):
+    if DEBUG:
+        print("construct_command")
+        print("cmd: " + str(cmd) + "    data: " + str(data))
     assert len(data) <= 12
     data += [0,]*(12-len(data))
     checksum = (sum(data)+cmd-2)%256
@@ -119,43 +122,46 @@ def construct_command(cmd, data=[]):
     ret += "\xff\xff" + chr(checksum) + "\xab"
 
     if DEBUG:
-        print("construct_command")
-        dump(ret, '> ')
+        dump(ret, 'ser.write(): ')
     ret_b = ret.encode('raw_unicode_escape')
     return ret_b
 
 # processes input data d and returns pm25 and pm10
 def process_data(d):
+    if DEBUG:
+        print("process_data")
     r = struct.unpack('<HHxxBB', d[2:])
     pm25 = r[0]/10.0
     pm10 = r[1]/10.0
-    # checksum = sum(ord(v) for v in d[2:8])%256
+    # old: checksum = sum(ord(v) for v in d[2:8])%256
     checksum = sum(v for v in d[2:8])%256
-    if DEBUG:
-        print("process_data")
     return [pm25, pm10]
     #print("PM 2.5: {} μg/m^3  PM 10: {} μg/m^3 CRC={}".format(pm25, pm10, "OK" if (checksum==r[2] and r[3]==0xab) else "NOK"))
 
 # print software version; used in cmd_firmware_ver()
 def process_version(d):
-    r = struct.unpack('<BBBHBB', d[3:])
-    #checksum = sum(ord(v) for v in d[2:8])%256
-    checksum = sum(v for v in d[2:8])%256
     if DEBUG:
         print("process_version")
+    r = struct.unpack('<BBBHBB', d[3:])
+    # old: checksum = sum(ord(v) for v in d[2:8])%256
+    checksum = sum(v for v in d[2:8])%256
     print("Y: {}, M: {}, D: {}, ID: {}, CRC={}".format(r[0], r[1], r[2], hex(r[3]), "OK" if (checksum==r[4] and r[5]==0xab) else "NOK"))
 
 # read response from serial port
 def read_response():
+    if DEBUG:
+        print("read_response")
+        print("while byte != b'\xaa':")
     byte = 0
     while byte != b"\xaa":
+        if DEBUG:
+            print("byte: " + str(byte))
         byte = ser.read(size=1)
 
     d = ser.read(size=9)
 
     if DEBUG:
-        print("read_response")
-        dump(d, '< ')
+        dump(d, 'ser.read(): ')
     return byte + d
 
 # multiple commands to interact with sensor firmware
