@@ -245,6 +245,7 @@ def turn_shelly_on(shelly_ip):
 if __name__ == "__main__":
     print("Starting...")
     cmd_set_sleep(0)
+    nova_is_asleep = 1
     print("firmware:")
     cmd_firmware_ver()
     cmd_set_working_period(PERIOD_CONTINUOUS)
@@ -260,8 +261,14 @@ if __name__ == "__main__":
             print("Turning off all shelly lamps...")
             turn_shelly_off(ip_shelly_p)
             turn_shelly_off(ip_shelly_t)
-            print("Putting SDS011 to sleep...")
-            cmd_set_sleep(1)
+            # putting it to sleep while its already sleeping often causes system to be stuck
+            if nova_is_asleep:
+                print("SDS011 is already asleep")
+            else:
+                print("Putting SDS011 to sleep...")
+                cmd_set_sleep(1)
+                nova_is_asleep = 1
+            
             # calculates seconds till next morning start time
             sec_till_start_today = int((datetime.datetime(dt_now.year, dt_now.month, dt_now.day, active_hour_start) - dt_now).total_seconds())
             sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, dt_now.month, (dt_now.day + 1), active_hour_start) - dt_now).total_seconds())
@@ -271,23 +278,28 @@ if __name__ == "__main__":
         
         # wake SDS011 up
         cmd_set_sleep(0)
+        nova_is_asleep = 0
         pm25 = 0
         pm10 = 0
         # give it 30s to get going
-        # enable, test first of values change after a certain period
-        # time.sleep(30) 
-        # get NOVA SDS011 pm2.5 and pm10
+        print("giving SDS011 30s to get going")
+        time.sleep(30)
+        # get NOVA SDS011 pm2.5 and pm10 average over 3 reads
+            # -> useless and just one read?
         print("NOVA SDS011:")
-        for t in range(15):
+        for t in range(3):
             values = cmd_query_data()
             if values is not None and len(values) == 2:
-                pm25 = values[0]
-                pm10 = values[1]
-                print("PM2.5: ", pm25, ", PM10: ", pm10)
-                time.sleep(4)
+                pm25 += values[0]
+                pm10 += values[1]
+                print("PM2.5: ", values[0], ", PM10: ", values[1])
+                time.sleep(3)
+        pm25 /= 3
+        pm10 /= 3
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
+        nova_is_asleep = 1
         
         # get LPS25
         print("LPS25:")
