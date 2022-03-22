@@ -256,8 +256,6 @@ if __name__ == "__main__":
         dt_now = datetime.datetime.now()
         if (dt_now.hour >= active_hour_end or dt_now.hour < active_hour_start):
             print("Going to sleep...")
-            print("sleeping 30s to prevent sensor clutter")
-            time.sleep(30)
             print("Turning off all shelly lamps...")
             turn_shelly_off(ip_shelly_p)
             turn_shelly_off(ip_shelly_t)
