@@ -37,6 +37,7 @@ MQTT_TOPIC = ''
 ser = serial.Serial()
 ser.port = "/dev/ttyUSB0"
 ser.baudrate = 9600
+ser.timeout = 5
 #print(ser)
 
 ser.open()
@@ -166,26 +167,6 @@ def pub_mqtt(jsonrow):
     print('Publishing using:', cmd)
     with subprocess.Popen(cmd, shell=False, bufsize=0, stdin=subprocess.PIPE).stdin as f:
         json.dump(jsonrow, f)
-
-def turn_shelly_off(shelly_ip):
-    try:
-        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=off", auth=shelly_login)
-        if (shelly_resp.status_code != 200):
-            print(str(shelly_ip) + ": " + shelly_resp.text)
-        else:
-            print(str(shelly_ip) + ": turned off") 
-    except Exception as e:
-        print(str(shelly_ip) + ":\n" + str(e))
-
-def turn_shelly_on(shelly_ip):
-    try:
-        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=on", auth=shelly_login)
-        if (shelly_resp.status_code != 200):
-            print(str(shelly_ip) + ": " + shelly_resp.text)
-        else:
-            print(str(shelly_ip) + ": turned on") 
-    except Exception as e:
-        print(str(shelly_ip) + ":\n" + str(e))
 
 # main
 if __name__ == "__main__":

@@ -3,7 +3,6 @@
 # "DATASHEET": http://cl.ly/ekot
 # https://gist.github.com/kadamski/92653913a53baf9dd1a8
 
-from re import A
 import serial, struct, sys, time, json, subprocess, datetime
 import board, adafruit_lps2x, adafruit_dht
 import sqlite3, os
@@ -68,6 +67,7 @@ MQTT_TOPIC = ''
 ser = serial.Serial()
 ser.port = "/dev/ttyUSB0"
 ser.baudrate = 9600
+ser.timeout = 5
 #print(ser)
 
 ser.open()
@@ -123,6 +123,7 @@ def construct_command(cmd, data=[]):
 
     if DEBUG:
         dump(ret, 'ser.write(): ')
+    # encode to byte
     ret_b = ret.encode('raw_unicode_escape')
     return ret_b
 
@@ -157,6 +158,13 @@ def read_response():
         if DEBUG:
             print("byte: " + str(byte))
         byte = ser.read(size=1)
+        if DEBUG:
+            print("after ser.read(): " + str(byte))
+        # sometimes when putting sds011 to work mode (cmd_set_sleep(0)) ser.read() returns b'' but 
+        # mode seems to have been changed successfully. returns error
+        if (byte == b''):
+            print("ser.read() resulted in b''")
+            return "ser.read() error: read b''"
 
     d = ser.read(size=9)
 
@@ -185,12 +193,15 @@ def cmd_query_data():
         values = process_data(d)
     return values
 
-# sleep = 0 -> work; else -> sleep
+# sleep = 0 -> work; 1/else -> sleep
 def cmd_set_sleep(sleep):
     if DEBUG:
         print("cmd_set_sleep " + str(sleep))
+    # mode 0 = sleep; 1 = work
     mode = 0 if sleep else 1
     ser.write(construct_command(CMD_SLEEP, [0x1, mode]))
+    global nova_is_asleep
+    nova_is_asleep = sleep
     read_response()
 
 def cmd_set_working_period(period):
@@ -245,7 +256,6 @@ def turn_shelly_on(shelly_ip):
 if __name__ == "__main__":
     print("Starting...")
     cmd_set_sleep(0)
-    nova_is_asleep = 1
     print("firmware:")
     cmd_firmware_ver()
     cmd_set_working_period(PERIOD_CONTINUOUS)
@@ -265,7 +275,6 @@ if __name__ == "__main__":
             else:
                 print("Putting SDS011 to sleep...")
                 cmd_set_sleep(1)
-                nova_is_asleep = 1
             
             # calculates seconds till next morning start time
             sec_till_start_today = int((datetime.datetime(dt_now.year, dt_now.month, dt_now.day, active_hour_start) - dt_now).total_seconds())
@@ -276,7 +285,6 @@ if __name__ == "__main__":
         
         # wake SDS011 up
         cmd_set_sleep(0)
-        nova_is_asleep = 0
         pm25 = 0
         pm10 = 0
         # give it 30s to get going
@@ -297,7 +305,6 @@ if __name__ == "__main__":
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
-        nova_is_asleep = 1
         
         # get LPS25
         print("LPS25:")
