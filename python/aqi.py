@@ -290,18 +290,15 @@ if __name__ == "__main__":
         # give it 30s to get going
         print("giving SDS011 30s to get going")
         time.sleep(30)
-        # get NOVA SDS011 pm2.5 and pm10 average over 3 reads
-            # -> useless and just one read?
+        # get NOVA SDS011 pm2.5 and pm10, uses last one
         print("NOVA SDS011:")
-        for t in range(3):
+        for t in range(2):
             values = cmd_query_data()
             if values is not None and len(values) == 2:
                 pm25 += values[0]
                 pm10 += values[1]
                 print("PM2.5: ", values[0], ", PM10: ", values[1])
-                time.sleep(3)
-        pm25 /= 3
-        pm10 /= 3
+                time.sleep(5)
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
