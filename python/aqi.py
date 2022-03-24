@@ -252,6 +252,77 @@ def turn_shelly_on(shelly_ip):
     except Exception as e:
         print(str(shelly_ip) + ":\n" + str(e))
 
+def get_lps25():
+    print("LPS25:")
+    global lps_temp
+    global lps_pressure
+    lps_temp = 0
+    lps_pressure = 0
+    # try 2x bc first one is sometimes way off
+    for x in range(2):
+        lps_temp = float("{:.2f}".format(lps.temperature))
+        lps_pressure = float("{:.2f}".format(lps.pressure))
+        print(
+            "Temp: {:.2f} C    Pressure: {:.2f} hPa".format(
+                lps_temp, lps_pressure
+                )
+            )
+        time.sleep(2)
+
+def get_dht():
+    print("DHT:")
+    # try 5 times if can't read
+    global dht_temp
+    global dht_humidity
+    dht_temp = 0
+    dht_humidity = 0
+    for x in range(5):
+        try:
+            # Print the values to the serial port
+            dht_temp = dhtDevice.temperature
+            dht_humidity = dhtDevice.humidity
+            print(
+                "Temp: {:.1f} C    Humidity: {}% ".format(
+                    dht_temp, dht_humidity
+                )
+            )
+
+        except RuntimeError as error:
+            # Errors happen fairly often, DHT's are hard to read, just keep going
+            print(error.args[0])
+            time.sleep(1)
+            continue
+        except TypeError as error:
+            # happens if the first readout goes worng
+            print(error)
+            time.sleep(1)
+            continue
+        except Exception as error:
+            print("==========")
+            print(error)                
+            # dhtDevice.exit() would lead into future errors if loop continues
+            print("==========")
+            time.sleep(1)
+        time.sleep(1)
+
+def get_sds011():
+    global pm25
+    global pm10
+    pm25 = 0
+    pm10 = 0
+    # give it 30s to get going
+    print("giving SDS011 30s to get going")
+    time.sleep(30)
+    # get NOVA SDS011 pm2.5 and pm10, uses last one
+    print("NOVA SDS011:")
+    for t in range(2):
+        values = cmd_query_data()
+        if values is not None and len(values) == 2:
+            pm25 = values[0]
+            pm10 = values[1]
+            print("PM2.5: ", values[0], ", PM10: ", values[1])
+            time.sleep(5)
+
 # main
 if __name__ == "__main__":
     print("Starting...")
@@ -259,7 +330,7 @@ if __name__ == "__main__":
     print("firmware:")
     cmd_firmware_ver()
     cmd_set_working_period(PERIOD_CONTINUOUS)
-    cmd_set_mode(MODE_QUERY);
+    cmd_set_mode(MODE_QUERY)
     while True:
         print("\nNew readout starting at " + str(time.strftime("%d.%m.%Y %H:%M:%S")))
         # at night, don't run to save sensor life 
@@ -280,77 +351,35 @@ if __name__ == "__main__":
             sec_till_start_today = int((datetime.datetime(dt_now.year, dt_now.month, dt_now.day, active_hour_start) - dt_now).total_seconds())
             sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, dt_now.month, (dt_now.day + 1), active_hour_start) - dt_now).total_seconds())
             sleeptime = sec_till_start_today if (dt_now.hour < active_hour_start) else sec_till_start_tomorrow
+            # convert seconds to hh.mm.ss
             print("Sleeping for " + str(datetime.timedelta(seconds=sleeptime)) + "h")
             time.sleep(sleeptime)
+
+        # also don't run if humidity > 70% or temp < -10 or > +50°C, will screw data or damage device
+        # https://forum.sensor.community/t/dehumidifier-for-pm-measurements/364/3
+        if (dht_humidity >= 70 or lps_temp <= -10 or lps_temp >= 45):
+            while True:
+                print("\nWARNING: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
+                print("Turning off for 3min")
+                time.sleep(180)
+                get_dht()
+                get_lps25()
+                if (dht_humidity < 65 or lps_temp > -10 or lps_temp < 45):
+                    break
         
         # wake SDS011 up
         cmd_set_sleep(0)
-        pm25 = 0
-        pm10 = 0
-        # give it 30s to get going
-        print("giving SDS011 30s to get going")
-        time.sleep(30)
-        # get NOVA SDS011 pm2.5 and pm10, uses last one
-        print("NOVA SDS011:")
-        for t in range(2):
-            values = cmd_query_data()
-            if values is not None and len(values) == 2:
-                pm25 += values[0]
-                pm10 += values[1]
-                print("PM2.5: ", values[0], ", PM10: ", values[1])
-                time.sleep(5)
+        
+        get_sds011()
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
         
         # get LPS25
-        print("LPS25:")
-        lps_temp = 0
-        lps_pressure = 0
-        # try 2x bc first one is sometimes way off
-        for x in range(2):
-            lps_temp = float("{:.2f}".format(lps.temperature))
-            lps_pressure = float("{:.2f}".format(lps.pressure))
-            print(
-                "Temp: {:.2f} C    Pressure: {:.2f} hPa".format(
-                    lps_temp, lps_pressure
-                    )
-                )
-            time.sleep(2)
+        get_lps25()
 
         # get DHT
-        print("DHT:")
-        # try 5 times if can't read
-        dht_temp = 0
-        dht_humidity = 0
-        for x in range(5):
-            try:
-                # Print the values to the serial port
-                dht_temp = dhtDevice.temperature
-                dht_humidity = dhtDevice.humidity
-                print(
-                    "Temp: {:.1f} C    Humidity: {}% ".format(
-                        dht_temp, dht_humidity
-                    )
-                )
-
-            except RuntimeError as error:
-                # Errors happen fairly often, DHT's are hard to read, just keep going
-                print(error.args[0])
-                time.sleep(1)
-                continue
-            except TypeError as error:
-                # happens if the first readout goes worng
-                print(error)
-                time.sleep(1)
-                continue
-            except Exception as error:
-                print("==========")
-                print(error)
-                # dhtDevice.exit() would lead into future errors if loop continues
-                print("==========")
-                time.sleep(1)
-            time.sleep(1)
+        get_dht()
         
         # turn light bulb on if limits exceeded
         if (pm25 > pm25_limit or pm10 > pm10_limit):
