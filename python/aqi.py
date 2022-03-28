@@ -354,6 +354,12 @@ if __name__ == "__main__":
             # convert seconds to hh.mm.ss
             print("Sleeping for " + str(datetime.timedelta(seconds=sleeptime)) + "h")
             time.sleep(sleeptime)
+        
+        # get LPS25
+        get_lps25()
+
+        # get DHT
+        get_dht()
 
         # also don't run if humidity > 70% or temp < -10 or > +50°C, will screw data or damage device
         # https://forum.sensor.community/t/dehumidifier-for-pm-measurements/364/3
@@ -374,12 +380,6 @@ if __name__ == "__main__":
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
-        
-        # get LPS25
-        get_lps25()
-
-        # get DHT
-        get_dht()
         
         # turn light bulb on if limits exceeded
         if (pm25 > pm25_limit or pm10 > pm10_limit):
