@@ -364,7 +364,7 @@ if __name__ == "__main__":
                 time.sleep(180)
                 get_dht()
                 get_lps25()
-                if (dht_humidity < 65 or lps_temp > -10 or lps_temp < 45):
+                if (dht_humidity < 65 or (lps_temp > -10 and lps_temp < 45)):
                     break
         
         # wake SDS011 up
@@ -395,6 +395,7 @@ if __name__ == "__main__":
             (pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
             )
         con.commit()
+        print("commited data to aqi.db")
         if DEBUG:
             print("pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity")
             print(pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)
