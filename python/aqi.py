@@ -267,15 +267,17 @@ def get_lps25():
                 lps_temp, lps_pressure
                 )
             )
-        time.sleep(2)
+        # skip sleep on last readout
+        if (x < 1):
+            time.sleep(2)
 
 def get_dht():
     print("DHT:")
-    # try 5 times if can't read
     global dht_temp
     global dht_humidity
     dht_temp = 0
     dht_humidity = 0
+    # try 5 times if can't read
     for x in range(5):
         try:
             # Print the values to the serial port
@@ -303,7 +305,9 @@ def get_dht():
             # dhtDevice.exit() would lead into future errors if loop continues
             print("==========")
             time.sleep(1)
-        time.sleep(1)
+        # skip sleep on last readout
+        if (x < 4):
+            time.sleep(1)
 
 def get_sds011():
     global pm25
@@ -365,12 +369,14 @@ if __name__ == "__main__":
         # https://forum.sensor.community/t/dehumidifier-for-pm-measurements/364/3
         if (dht_humidity >= 70 or lps_temp <= -10 or lps_temp >= 45):
             while True:
-                print("\nWARNING: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
+                print("\nTime: " + str(time.strftime("%H:%M:%S")))
+                print("WARNING: \ndht_humidity: " + str(dht_humidity) + "%\nlps_temp: " + str(lps_temp) + "°C")
                 print("Turning off for 3min")
                 time.sleep(180)
                 get_dht()
                 get_lps25()
-                if (dht_humidity < 65 or (lps_temp > -10 and lps_temp < 45)):
+                if (dht_humidity < 70 and lps_temp > -10 and lps_temp < 45):
+                    print("\Exiting loop: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
                     break
         
         # wake SDS011 up
