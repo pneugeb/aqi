@@ -62,6 +62,7 @@ html  {
 
 .time, .link {
     text-align: center;
+    margin: 6px;
 }
 
 table {
