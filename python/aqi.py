@@ -10,6 +10,10 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 
+# init lists for air quality calculation
+pm25_avg_10 = []
+pm10_avg_10 = []
+
 # active hours config
 # after these hours the script will not run
 active_hour_start = 7
@@ -325,7 +329,37 @@ def get_sds011():
             pm25 = values[0]
             pm10 = values[1]
             print("PM2.5: ", values[0], ", PM10: ", values[1])
-            time.sleep(5)
+            # don't sleep on last run
+            if (t < 1):
+                time.sleep(5)
+
+def calc_pm25_avg():
+    # pm25 calc average over last 10
+    global pm25_avg
+    global pm25_avg_10
+    pm25_avg = 0
+
+    if len(pm25_avg_10) == 10:
+        pm25_avg_10.pop(0)
+    pm25_avg_10.append(pm25)
+
+    for i in pm25_avg_10:
+        pm25_avg += i
+    pm25_avg /= len(pm25_avg_10)
+
+def calc_pm10_avg():
+    # pm10 average calc over last 10
+    global pm10_avg
+    global pm10_avg_10
+    pm10_avg = 0
+
+    if len(pm10_avg_10) == 10:
+        pm10_avg_10.pop(0)
+    pm10_avg_10.append(pm10)
+
+    for i in pm10_avg_10:
+        pm10_avg += i
+    pm10_avg /= len(pm10_avg_10)
 
 # main
 if __name__ == "__main__":
@@ -358,6 +392,9 @@ if __name__ == "__main__":
             # convert seconds to hh.mm.ss
             print("Sleeping for " + str(datetime.timedelta(seconds=sleeptime)) + "h")
             time.sleep(sleeptime)
+            # reset lists for avg calc if normal values have significantly risen during sleep
+            pm25_avg_10 = []
+            pm10_avg_10 = []
         
         # get LPS25
         get_lps25()
@@ -377,6 +414,9 @@ if __name__ == "__main__":
                 get_lps25()
                 if (dht_humidity < 70 and lps_temp > -10 and lps_temp < 45):
                     print("\Exiting loop: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
+                    # reset lists for avg calc if normal values have significantly risen during the high humidity period
+                    pm25_avg_10 = []
+                    pm10_avg_10 = []
                     break
         
         # wake SDS011 up
@@ -386,15 +426,43 @@ if __name__ == "__main__":
         
         # put SDS011 to sleep
         cmd_set_sleep(1)
-        
-        # turn light bulb on if limits exceeded
-        if (pm25 > pm25_limit or pm10 > pm10_limit):
-            turn_shelly_on(ip_shelly_p)
-            turn_shelly_on(ip_shelly_t)
-        else:
-            turn_shelly_off(ip_shelly_p)
-            turn_shelly_off(ip_shelly_t)
 
+        # config fpr turning lamps on
+        if lamp_is_on:
+            # wenn Werte wieder gefallen sind, lampen wieder aus und mit avg calc weitermachen
+            if (pm25_avg < (2 * pm25) or pm10_avg < (2 * pm10)):
+                turn_shelly_off(ip_shelly_p)
+                turn_shelly_off(ip_shelly_t)
+                lamp_is_on = 0
+                # add latest pm25 & pm10 to avg list
+                calc_pm25_avg()
+                calc_pm10_avg()
+            # wenn Werte noch hoch sind bleiben die Lampen an
+            else:
+                print("Limit still exceeded:\npm25 = {}\npm25_avg = {}\npm10 = {}\npm10_avg = {}\nturning lamps on".format(
+                    pm25, pm25_avg, pm10, pm10_avg
+                    )
+                )
+        else:
+            # if lamp is off, calc averages and check if lamp needs  be turned on
+            calc_pm25_avg()
+            calc_pm10_avg()
+
+            if (pm25_avg >= (2 * pm25) or pm10_avg >= (2 * pm10)):
+                print("Limit exceeded\npm25 = {}\npm25_avg = {}\npm10 = {}\npm10_avg = {}\nturning lamps on".format(
+                    pm25, pm25_avg, pm10, pm10_avg
+                    )
+                )
+                turn_shelly_on(ip_shelly_p)
+                turn_shelly_on(ip_shelly_t)
+                # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
+                lamp_is_on = 1
+            else:
+                print("Low results\npm25_avg = {}\npm10_avg = {}".format(
+                    pm25_avg, pm10_avg
+                    )
+                )
+        
         # save to sqlite3 db
         cur.execute('''INSERT INTO data (date,pm25,pm10,lps_temp,lps_pressure,dht_temp,dht_humidity) 
             VALUES (datetime('now'), ?, ?, ?, ?, ?, ?)''', 

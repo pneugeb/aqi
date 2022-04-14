@@ -8,3 +8,10 @@ The system uses Shelly RGBW light bulbs that turn on red when a high pm2.5 or pm
 install:
 https://learn.adafruit.com/circuitpython-on-raspberrypi-linux/installing-circuitpython-on-raspberry-pi
 
+logs:
+/var/www/html/logs
+to be able to be accessed by web server
+
+
+# to-do:
+[] read lps25 and dht while sds011 gets ready for speedup
