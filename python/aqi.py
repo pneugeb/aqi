@@ -429,7 +429,7 @@ if __name__ == "__main__":
         # config fpr turning lamps on
         if lamp_is_on:
             # wenn Werte wieder gefallen sind, lampen wieder aus und mit avg calc weitermachen
-            if (pm25_avg < (2 * pm25) or pm10_avg < (2 * pm10)):
+            if (pm25 < (2 * pm25_avg) or pm10 < (2 * pm10_avg)):
                 turn_shelly_off(ip_shelly_p)
                 turn_shelly_off(ip_shelly_t)
                 lamp_is_on = 0
@@ -447,7 +447,7 @@ if __name__ == "__main__":
             calc_pm25_avg()
             calc_pm10_avg()
 
-            if (pm25_avg >= (2 * pm25) or pm10_avg >= (2 * pm10)):
+            if (pm25 >= (2 * pm25_avg) or pm10 >= (2 * pm10_avg)):
                 print("Limit exceeded\npm25 = {}\npm25_avg = {}\npm10 = {}\npm10_avg = {}\nturning lamps on".format(
                     pm25, pm25_avg, pm10, pm10_avg
                     )

@@ -16,3 +16,4 @@ to be able to be accessed by web server
 # to-do:
 [] read lps25 and dht while sds011 gets ready for speedup
 [] what if dht read fails 5x?
+[] what if turning lamps dont work bc it cant reach the lamp for a sec
