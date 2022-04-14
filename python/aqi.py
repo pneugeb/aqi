@@ -427,9 +427,14 @@ if __name__ == "__main__":
         cmd_set_sleep(1)
 
         # config fpr turning lamps on
+        print("AVGS:")
         if lamp_is_on:
             # wenn Werte wieder gefallen sind, lampen wieder aus und mit avg calc weitermachen
-            if (pm25 < (2 * pm25_avg) or pm10 < (2 * pm10_avg)):
+            if (pm25 < (2 * pm25_avg) and pm10 < (2 * pm10_avg)):
+                print("Low again\npm25_avg = {}\npm10_avg = {}".format(
+                    pm25_avg, pm10_avg
+                    )
+                )
                 turn_shelly_off(ip_shelly_p)
                 turn_shelly_off(ip_shelly_t)
                 lamp_is_on = 0
@@ -438,8 +443,8 @@ if __name__ == "__main__":
                 calc_pm10_avg()
             # wenn Werte noch hoch sind bleiben die Lampen an
             else:
-                print("Limit still exceeded:\npm25 = {}\npm25_avg = {}\npm10 = {}\npm10_avg = {}\nturning lamps on".format(
-                    pm25, pm25_avg, pm10, pm10_avg
+                print("Limit still exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
+                    pm25_avg, pm10_avg
                     )
                 )
         else:
@@ -448,8 +453,8 @@ if __name__ == "__main__":
             calc_pm10_avg()
 
             if (pm25 >= (2 * pm25_avg) or pm10 >= (2 * pm10_avg)):
-                print("Limit exceeded\npm25 = {}\npm25_avg = {}\npm10 = {}\npm10_avg = {}\nturning lamps on".format(
-                    pm25, pm25_avg, pm10, pm10_avg
+                print("Limit exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
+                    pm25_avg, pm10_avg
                     )
                 )
                 turn_shelly_on(ip_shelly_p)
@@ -457,7 +462,7 @@ if __name__ == "__main__":
                 # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
                 lamp_is_on = 1
             else:
-                print("Low results\npm25_avg = {}\npm10_avg = {}".format(
+                print("Low averages\npm25_avg = {}\npm10_avg = {}".format(
                     pm25_avg, pm10_avg
                     )
                 )
