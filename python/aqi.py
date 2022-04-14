@@ -24,8 +24,6 @@ active_hour_end = 23
 shelly_login = HTTPBasicAuth('user', 'password')
 ip_shelly_p = "192.168.0.1"
 ip_shelly_t = "192.168.0.1"
-pm25_limit = 50
-pm10_limit = 70
 
 print("Initializing shelly...")
 try:
@@ -42,6 +40,7 @@ try:
         print("shelly-t: " + shelly_init.text)
 except Exception as e:
     print(e)
+lamp_is_on = 0
 
 
 # SDS011 configs
