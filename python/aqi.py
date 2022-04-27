@@ -22,25 +22,14 @@ active_hour_end = 23
 
 # Shelly bulb configs
 shelly_login = HTTPBasicAuth('user', 'password')
-ip_shelly_p = "192.168.0.1"
-ip_shelly_t = "192.168.0.1"
+ip_shelly_p = "192.168.178.1"
+ip_shelly_t = "192.168.178.1"
+# modes; using ip/light/0? endpoint
+off_mode = "turn=off"
+smoke_mode = "turn=on&mode=color&red=255&green=0&blue=0&gain=20"
+high_humid_mode = "turn=on&mode=color&red=155&green=175&blue=255&gain=1"
+crashed_mode = "turn=on&mode=color&red=255&green=17&blue=249&gain=20"
 
-print("Initializing shelly...")
-try:
-    shelly_init = requests.get("http://"+ip_shelly_p+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-    if (shelly_init.status_code != 200):
-        print("Error in initializing shelly:")
-        print("shelly-p: " + shelly_init.text)
-except Exception as e:
-    print(e)
-try:
-    shelly_init = requests.get("http://"+ip_shelly_t+"/light/0?turn=off&mode=color&red=255&green=0&blue=0&gain=10", auth=shelly_login)
-    if (shelly_init.status_code != 200):
-        print("Error in initializing shelly:")
-        print("shelly-t: " + shelly_init.text)
-except Exception as e:
-    print(e)
-lamp_is_on = 0
 
 
 # SDS011 configs
@@ -235,25 +224,25 @@ def pub_mqtt(jsonrow):
     with subprocess.Popen(cmd, shell=False, bufsize=0, stdin=subprocess.PIPE).stdin as f:
         json.dump(jsonrow, f)
 
-def turn_shelly_off(shelly_ip):
+def turn_shelly_on(shelly_ip, mode):
+    # used to turn shelly on and off, use off_mode
     try:
-        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=off", auth=shelly_login)
-        if (shelly_resp.status_code != 200):
-            print(str(shelly_ip) + ": " + shelly_resp.text)
+        shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
+        if (shelly_resp.status_code == 200):
+            print(str(shelly_ip) + ": turned on " + str(mode))
         else:
-            print(str(shelly_ip) + ": turned off") 
-    except Exception as e:
-        print(str(shelly_ip) + ":\n" + str(e))
-
-def turn_shelly_on(shelly_ip):
-    try:
-        shelly_resp = requests.get("http://"+shelly_ip+"/light/0?turn=on", auth=shelly_login)
-        if (shelly_resp.status_code != 200):
             print(str(shelly_ip) + ": " + shelly_resp.text)
-        else:
-            print(str(shelly_ip) + ": turned on") 
     except Exception as e:
-        print(str(shelly_ip) + ":\n" + str(e))
+        print(str(shelly_ip) + ":\n" + str(e) + ", trying again")
+        # try again if e.g. can't connect to lamp on first try
+        try:
+            shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
+            if (shelly_resp.status_code == 200):
+                print(str(shelly_ip) + ": turned on " + str(mode))
+            else:
+                print(str(shelly_ip) + ": " + shelly_resp.text)
+        except Exception as e:
+            print(str(shelly_ip) + ":\n" + str(e))
 
 def get_lps25():
     print("LPS25:")
@@ -262,7 +251,8 @@ def get_lps25():
     lps_temp = 0
     lps_pressure = 0
     # try 2x bc first one is sometimes way off
-    for x in range(2):
+    repeat_amount = 2
+    for x in range(repeat_amount):
         lps_temp = float("{:.2f}".format(lps.temperature))
         lps_pressure = float("{:.2f}".format(lps.pressure))
         print(
@@ -271,7 +261,7 @@ def get_lps25():
                 )
             )
         # skip sleep on last readout
-        if (x < 1):
+        if (x < (repeat_amount - 1)):
             time.sleep(2)
 
 def get_dht():
@@ -281,7 +271,8 @@ def get_dht():
     dht_temp = 0
     dht_humidity = 0
     # try 5 times if can't read
-    for x in range(5):
+    repeat_amount = 5
+    for x in range(repeat_amount):
         try:
             # Print the values to the serial port
             dht_temp = dhtDevice.temperature
@@ -301,15 +292,17 @@ def get_dht():
             # happens if the first readout goes worng
             print(error)
             time.sleep(1)
+            # if we never get a good result just set 0 so it doesnt crash
+            dht_temp = 0
+            dht_humidity = 0
             continue
         except Exception as error:
             print("==========")
-            print(error)                
-            # dhtDevice.exit() would lead into future errors if loop continues
+            print(error)
             print("==========")
             time.sleep(1)
         # skip sleep on last readout
-        if (x < 4):
+        if (x < (repeat_amount - 1)):
             time.sleep(1)
 
 def get_sds011():
@@ -360,8 +353,46 @@ def calc_pm10_avg():
         pm10_avg += i
     pm10_avg /= len(pm10_avg_10)
 
-# main
-if __name__ == "__main__":
+def check_humidity():
+    # get LPS25
+    get_lps25()
+
+    # get DHT
+    get_dht()
+
+    # also don't run if humidity > 70% or temp < -10 or > +50°C, will screw data or damage device
+    # https://forum.sensor.community/t/dehumidifier-for-pm-measurements/364/3
+    if (dht_humidity >= 70 or lps_temp <= -10 or lps_temp >= 45):
+        while True:
+            print("\nTime: " + str(time.strftime("%H:%M:%S")))
+            print("WARNING: \ndht_humidity: " + str(dht_humidity) + "%\nlps_temp: " + str(lps_temp) + "°C")
+            turn_shelly_on(ip_shelly_p, high_humid_mode)
+            turn_shelly_on(ip_shelly_t, high_humid_mode)
+            print("Turning off for 3min")
+            time.sleep(180)
+            get_dht()
+            get_lps25()
+            if (dht_humidity < 70 and lps_temp > -10 and lps_temp < 45):
+                print("\Exiting loop: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
+                turn_shelly_on(ip_shelly_p, off_mode)
+                turn_shelly_on(ip_shelly_t, off_mode)
+                # reset lists for avg calc if normal values have significantly risen during the high humidity period
+                global pm25_avg_10
+                global pm10_avg_10
+                pm25_avg_10 = []
+                pm10_avg_10 = []
+                break
+
+def main():
+    # globals
+    global pm25_avg_10
+    global pm10_avg_10
+    # init shelly
+    print("Initializing shelly...")
+    turn_shelly_on(ip_shelly_p, off_mode)
+    turn_shelly_on(ip_shelly_t, off_mode)
+    lamp_is_on = 0
+    # init SDS011
     print("Starting...")
     cmd_set_sleep(0)
     print("firmware:")
@@ -370,13 +401,17 @@ if __name__ == "__main__":
     cmd_set_mode(MODE_QUERY)
     while True:
         print("\nNew readout starting at " + str(time.strftime("%d.%m.%Y %H:%M:%S")))
+
+        # pause if high humidity
+        check_humidity()
+
         # at night, don't run to save sensor life 
         dt_now = datetime.datetime.now()
         if (dt_now.hour >= active_hour_end or dt_now.hour < active_hour_start):
             print("Going to sleep...")
             print("Turning off all shelly lamps...")
-            turn_shelly_off(ip_shelly_p)
-            turn_shelly_off(ip_shelly_t)
+            turn_shelly_on(ip_shelly_p, off_mode)
+            turn_shelly_on(ip_shelly_t, off_mode)
             # putting it to sleep while its already sleeping often causes system to be stuck
             if nova_is_asleep:
                 print("SDS011 is already asleep")
@@ -394,29 +429,8 @@ if __name__ == "__main__":
             # reset lists for avg calc if normal values have significantly risen during sleep
             pm25_avg_10 = []
             pm10_avg_10 = []
-        
-        # get LPS25
-        get_lps25()
-
-        # get DHT
-        get_dht()
-
-        # also don't run if humidity > 70% or temp < -10 or > +50°C, will screw data or damage device
-        # https://forum.sensor.community/t/dehumidifier-for-pm-measurements/364/3
-        if (dht_humidity >= 70 or lps_temp <= -10 or lps_temp >= 45):
-            while True:
-                print("\nTime: " + str(time.strftime("%H:%M:%S")))
-                print("WARNING: \ndht_humidity: " + str(dht_humidity) + "%\nlps_temp: " + str(lps_temp) + "°C")
-                print("Turning off for 3min")
-                time.sleep(180)
-                get_dht()
-                get_lps25()
-                if (dht_humidity < 70 and lps_temp > -10 and lps_temp < 45):
-                    print("\Exiting loop: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
-                    # reset lists for avg calc if normal values have significantly risen during the high humidity period
-                    pm25_avg_10 = []
-                    pm10_avg_10 = []
-                    break
+            # pause if high humidity
+            check_humidity()
         
         # wake SDS011 up
         cmd_set_sleep(0)
@@ -431,24 +445,33 @@ if __name__ == "__main__":
         if lamp_is_on:
             # wenn Werte wieder gefallen sind, lampen wieder aus und mit avg calc weitermachen
             if (pm25 < (2 * pm25_avg) and pm10 < (2 * pm10_avg)):
-                print("Low again\npm25_avg = {}\npm10_avg = {}".format(
-                    pm25_avg, pm10_avg
+                # check if values are low for two consecutive measurements
+                if sds011_low_twice_in_row:
+                    print("Low again\npm25_avg = {}\npm10_avg = {}".format(
+                        pm25_avg, pm10_avg
+                        )
                     )
-                )
-                turn_shelly_off(ip_shelly_p)
-                turn_shelly_off(ip_shelly_t)
-                lamp_is_on = 0
-                # add latest pm25 & pm10 to avg list
-                calc_pm25_avg()
-                calc_pm10_avg()
+                    turn_shelly_on(ip_shelly_p, off_mode)
+                    turn_shelly_on(ip_shelly_t, off_mode)
+                    lamp_is_on = 0
+                    # add latest pm25 & pm10 to avg list
+                    calc_pm25_avg()
+                    calc_pm10_avg()
+                else:
+                    print("Low again, waiting for second measurement confirmation\npm25_avg = {}\npm10_avg = {}".format(
+                        pm25_avg, pm10_avg
+                        )
+                    )
+                    sds011_low_twice_in_row = 1
             # wenn Werte noch hoch sind bleiben die Lampen an
             else:
                 print("Limit still exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
                     pm25_avg, pm10_avg
                     )
                 )
+                sds011_low_twice_in_row = 0
         else:
-            # if lamp is off, calc averages and check if lamp needs  be turned on
+            # if lamp is off, calc averages and check if lamp needs to be turned on
             calc_pm25_avg()
             calc_pm10_avg()
 
@@ -457,10 +480,11 @@ if __name__ == "__main__":
                     pm25_avg, pm10_avg
                     )
                 )
-                turn_shelly_on(ip_shelly_p)
-                turn_shelly_on(ip_shelly_t)
+                turn_shelly_on(ip_shelly_p, smoke_mode)
+                turn_shelly_on(ip_shelly_t, smoke_mode)
                 # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
                 lamp_is_on = 1
+                sds011_low_twice_in_row = 0
             else:
                 print("Low averages\npm25_avg = {}\npm10_avg = {}".format(
                     pm25_avg, pm10_avg
@@ -508,3 +532,16 @@ if __name__ == "__main__":
         # sleep    
         print("Going to sleep for 30 secs...")
         time.sleep(30)
+
+# main
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print("\n\n== RIP ==\n")
+        print(e)
+        # if it crashed turns lamps on, try this regularly if wifi can't connect
+        while True:
+            turn_shelly_on(ip_shelly_p, crashed_mode)
+            turn_shelly_on(ip_shelly_t, crashed_mode)
+            time.sleep(600)
