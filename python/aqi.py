@@ -229,7 +229,7 @@ def turn_shelly_on(shelly_ip, mode):
     try:
         shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
         if (shelly_resp.status_code == 200):
-            print(str(shelly_ip) + ": turned on " + str(mode))
+            print(str(shelly_ip) + ": turned on " + str([mode_name for mode_name in globals() if globals()[mode_name] is mode]))
         else:
             print(str(shelly_ip) + ": " + shelly_resp.text)
     except Exception as e:
@@ -238,7 +238,7 @@ def turn_shelly_on(shelly_ip, mode):
         try:
             shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
             if (shelly_resp.status_code == 200):
-                print(str(shelly_ip) + ": turned on " + str(mode))
+                print(str(shelly_ip) + ": turned on " + str([mode_name for mode_name in globals() if globals()[mode_name] is mode]))
             else:
                 print(str(shelly_ip) + ": " + shelly_resp.text)
         except Exception as e:
@@ -472,9 +472,6 @@ def main():
                 sds011_low_twice_in_row = 0
         else:
             # if lamp is off, calc averages and check if lamp needs to be turned on
-            calc_pm25_avg()
-            calc_pm10_avg()
-
             if (pm25 >= (2 * pm25_avg) or pm10 >= (2 * pm10_avg)):
                 print("Limit exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
                     pm25_avg, pm10_avg
@@ -486,6 +483,8 @@ def main():
                 lamp_is_on = 1
                 sds011_low_twice_in_row = 0
             else:
+                calc_pm25_avg()
+                calc_pm10_avg()
                 print("Low averages\npm25_avg = {}\npm10_avg = {}".format(
                     pm25_avg, pm10_avg
                     )
