@@ -50,7 +50,8 @@ MODE_QUERY = 1
     # 0 = Report active mode：Sensor automatically reports a measurement data in a work period.
 PERIOD_CONTINUOUS = 0
 
-JSON_FILE = '/var/www/html/aqi.json'
+JSON_FILE = "/var/www/html/aqi.json"
+SHELLY_TIME_FILE = "/home/smoke/shelly_active_times.json"
 
 MQTT_HOST = ''
 MQTT_TOPIC = ''
@@ -224,7 +225,7 @@ def pub_mqtt(jsonrow):
     with subprocess.Popen(cmd, shell=False, bufsize=0, stdin=subprocess.PIPE).stdin as f:
         json.dump(jsonrow, f)
 
-def turn_shelly_on(shelly_ip, mode):
+def shelly_lamp_control(shelly_ip, mode):
     # used to turn shelly on and off, use off_mode
     try:
         shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
@@ -233,16 +234,47 @@ def turn_shelly_on(shelly_ip, mode):
         else:
             print(str(shelly_ip) + ": " + shelly_resp.text)
     except Exception as e:
-        print(str(shelly_ip) + ":\n" + str(e) + ", trying again")
-        # try again if e.g. can't connect to lamp on first try
-        try:
-            shelly_resp = requests.get("http://" + shelly_ip + "/light/0?" + mode, auth=shelly_login)
-            if (shelly_resp.status_code == 200):
-                print(str(shelly_ip) + ": turned on " + str([mode_name for mode_name in globals() if globals()[mode_name] is mode]))
-            else:
-                print(str(shelly_ip) + ": " + shelly_resp.text)
-        except Exception as e:
-            print(str(shelly_ip) + ":\n" + str(e))
+        print(str(shelly_ip) + ":\n" + str(e)) 
+
+def turn_shelly_on(mode):
+    # don't turn on during scheduled off time
+    try:
+        with open(SHELLY_TIME_FILE) as json_data:
+            p_start = json.load(json_data)["p_start"]
+            p_end = json.load(json_data)["p_end"]
+            t_start = json.load(json_data)["t_start"]
+            t_end = json.load(json_data)["t_end"]
+    except Exception as e:
+        print(e)
+        p_start = "0:00"
+        p_end = "24:00"
+        t_start = "0:00"
+        t_end = "24:00"
+    # turn into hours and minutes
+    p_start_hour, sep, p_start_minutes = p_start.partition(":")
+    p_end_hour, sep, p_end_minutes = p_end.partition(":")
+    t_start_hour, sep, t_start_minutes = t_start.partition(":")
+    t_end_hour, sep, t_end_minutes = t_end.partition(":")
+
+    # turn into datetime object that can be used for comparing
+    dt_now = datetime.datetime.now()
+    p_start_dt = dt_now.replace(hour=int(p_start_hour), minute=int(p_start_minutes), second=0, microsecond=0)
+    p_end_dt = dt_now.replace(hour=int(p_end_hour), minute=int(p_end_minutes), second=0, microsecond=0)
+    t_start_dt = dt_now.replace(hour=int(t_start_hour), minute=int(t_start_minutes), second=0, microsecond=0)
+    t_end_dt = dt_now.replace(hour=int(t_end_hour), minute=int(t_end_minutes), second=0, microsecond=0)
+
+    # turn lamps off if after that time
+    if (dt_now < p_start_dt or dt_now > p_end_dt):
+        shelly_lamp_control(ip_shelly_p, off_mode)
+    else:
+        shelly_lamp_control(ip_shelly_p, mode)
+
+    if (dt_now < t_start_dt or dt_now > t_end_dt):
+        shelly_lamp_control(ip_shelly_t, off_mode)
+    else:
+        shelly_lamp_control(ip_shelly_t, mode)
+
+    
 
 def get_lps25():
     print("LPS25:")
@@ -366,16 +398,15 @@ def check_humidity():
         while True:
             print("\nTime: " + str(time.strftime("%H:%M:%S")))
             print("WARNING: \ndht_humidity: " + str(dht_humidity) + "%\nlps_temp: " + str(lps_temp) + "°C")
-            turn_shelly_on(ip_shelly_p, high_humid_mode)
-            turn_shelly_on(ip_shelly_t, high_humid_mode)
+            turn_shelly_on(high_humid_mode)
             print("Turning off for 3min")
             time.sleep(180)
             get_dht()
             get_lps25()
-            if (dht_humidity < 70 and lps_temp > -10 and lps_temp < 45):
+            # values always -1 to give it small buffer so if does't switch often
+            if (dht_humidity < 69 and lps_temp > -9 and lps_temp < 44):
                 print("\Exiting loop: \ndht_humidity: " + str(dht_humidity) + "\nlps_temp: " + str(lps_temp))
-                turn_shelly_on(ip_shelly_p, off_mode)
-                turn_shelly_on(ip_shelly_t, off_mode)
+                turn_shelly_on(off_mode)
                 # reset lists for avg calc if normal values have significantly risen during the high humidity period
                 global pm25_avg_10
                 global pm10_avg_10
@@ -389,8 +420,7 @@ def main():
     global pm10_avg_10
     # init shelly
     print("Initializing shelly...")
-    turn_shelly_on(ip_shelly_p, off_mode)
-    turn_shelly_on(ip_shelly_t, off_mode)
+    turn_shelly_on(off_mode)
     lamp_is_on = 0
     # init SDS011
     print("Starting...")
@@ -410,8 +440,7 @@ def main():
         if (dt_now.hour >= active_hour_end or dt_now.hour < active_hour_start):
             print("Going to sleep...")
             print("Turning off all shelly lamps...")
-            turn_shelly_on(ip_shelly_p, off_mode)
-            turn_shelly_on(ip_shelly_t, off_mode)
+            turn_shelly_on(off_mode)
             # putting it to sleep while its already sleeping often causes system to be stuck
             if nova_is_asleep:
                 print("SDS011 is already asleep")
@@ -451,8 +480,7 @@ def main():
                         pm25_avg, pm10_avg
                         )
                     )
-                    turn_shelly_on(ip_shelly_p, off_mode)
-                    turn_shelly_on(ip_shelly_t, off_mode)
+                    turn_shelly_on(off_mode)
                     lamp_is_on = 0
                     # add latest pm25 & pm10 to avg list
                     calc_pm25_avg()
@@ -465,6 +493,7 @@ def main():
                     sds011_low_twice_in_row = 1
             # wenn Werte noch hoch sind bleiben die Lampen an
             else:
+                turn_shelly_on(smoke_mode)
                 print("Limit still exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
                     pm25_avg, pm10_avg
                     )
@@ -477,14 +506,14 @@ def main():
                     pm25_avg, pm10_avg
                     )
                 )
-                turn_shelly_on(ip_shelly_p, smoke_mode)
-                turn_shelly_on(ip_shelly_t, smoke_mode)
+                turn_shelly_on(smoke_mode)
                 # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
                 lamp_is_on = 1
                 sds011_low_twice_in_row = 0
             else:
                 calc_pm25_avg()
                 calc_pm10_avg()
+                turn_shelly_on(off_mode)
                 print("Low averages\npm25_avg = {}\npm10_avg = {}".format(
                     pm25_avg, pm10_avg
                     )
@@ -541,6 +570,5 @@ if __name__ == "__main__":
         print(e)
         # if it crashed turns lamps on, try this regularly if wifi can't connect
         while True:
-            turn_shelly_on(ip_shelly_p, crashed_mode)
-            turn_shelly_on(ip_shelly_t, crashed_mode)
+            turn_shelly_on(crashed_mode)
             time.sleep(600)
