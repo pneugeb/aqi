@@ -240,10 +240,11 @@ def turn_shelly_on(mode):
     # don't turn on during scheduled off time
     try:
         with open(SHELLY_TIME_FILE) as json_data:
-            p_start = json.load(json_data)["p_start"]
-            p_end = json.load(json_data)["p_end"]
-            t_start = json.load(json_data)["t_start"]
-            t_end = json.load(json_data)["t_end"]
+            dec_data = json.load(json_data)
+            p_start = dec_data["p_start"]
+            p_end = dec_data["p_end"]
+            t_start = dec_data["t_start"]
+            t_end = dec_data["t_end"]
     except Exception as e:
         print(e)
         p_start = "0:00"
@@ -433,6 +434,7 @@ def main():
         print("\nNew readout starting at " + str(time.strftime("%d.%m.%Y %H:%M:%S")))
 
         # pause if high humidity
+        # get DHT & LPS25 sensors via this function, results set to global
         check_humidity()
 
         # at night, don't run to save sensor life 
@@ -500,6 +502,9 @@ def main():
                 )
                 sds011_low_twice_in_row = 0
         else:
+            # if lamp is off, calc avgs. If it turns out there is a high measurment, the last element added to pm25_avg_10 will be removed
+            calc_pm25_avg()
+            calc_pm10_avg()
             # if lamp is off, calc averages and check if lamp needs to be turned on
             if (pm25 >= (2 * pm25_avg) or pm10 >= (2 * pm10_avg)):
                 print("Limit exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
@@ -507,12 +512,13 @@ def main():
                     )
                 )
                 turn_shelly_on(smoke_mode)
+                # pop last element, which is measurment of high aqi
+                pm25_avg_10.pop()
+                pm10_avg_10.pop()
                 # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
                 lamp_is_on = 1
                 sds011_low_twice_in_row = 0
             else:
-                calc_pm25_avg()
-                calc_pm10_avg()
                 turn_shelly_on(off_mode)
                 print("Low averages\npm25_avg = {}\npm10_avg = {}".format(
                     pm25_avg, pm10_avg
