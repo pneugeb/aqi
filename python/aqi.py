@@ -266,11 +266,13 @@ def turn_shelly_on(mode):
 
     # turn lamps off if after that time
     if (dt_now < p_start_dt or dt_now > p_end_dt):
+        print("lamp stays off, active hours: {} - {}".format(p_start, p_end))
         shelly_lamp_control(ip_shelly_p, off_mode)
     else:
         shelly_lamp_control(ip_shelly_p, mode)
 
     if (dt_now < t_start_dt or dt_now > t_end_dt):
+        print("lamp stays off, active hours: {} - {}".format(t_start, t_end))
         shelly_lamp_control(ip_shelly_t, off_mode)
     else:
         shelly_lamp_control(ip_shelly_t, mode)

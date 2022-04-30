@@ -5,6 +5,7 @@ import json, os
 
 JSON_FILE = "shelly_active_times.json"
 
+# i can't get clear to work in plink, disabled it in prod
 clearConsole = lambda: os.system('cls' if os.name in ('nt', 'dos') else 'clear')
 #clearConsole = lambda: print("c'ls")
 
@@ -39,7 +40,7 @@ def get_time():
  
 def check_p_or_t():
     print("\nwhich do you want to edit?")
-    lamp = input("[p] or [t]?\n")
+    lamp = input("[p] or [t]?\n> ")
     if (lamp in ["p", "P"]):
         return "p"
     elif (lamp in ["t", "T"]):
@@ -72,14 +73,14 @@ if __name__ == "__main__":
 
     if (which_one == "p"):
         clearConsole()
-        print("Shelly_p active hours")
+        print("\nshelly_p active hours")
         print("\nstart time: ")
         p_start = get_time()
         print("\nend time: ")
         p_end = get_time()
     else:
         clearConsole()
-        print("Shelly_t active hours")
+        print("\nshelly_t active hours")
         print("\nstart time: ")
         t_start = get_time()
         print("\nend time: ")

@@ -15,3 +15,4 @@ to be able to be accessed by web server
 
 # to-do:
 [] read lps25 and dht while sds011 gets ready for speedup
+[] improve wifi connection stability
