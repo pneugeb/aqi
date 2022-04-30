@@ -6,6 +6,7 @@ import json, os
 JSON_FILE = "shelly_active_times.json"
 
 clearConsole = lambda: os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+#clearConsole = lambda: print("c'ls")
 
 def get_hour():
     try:
@@ -13,8 +14,8 @@ def get_hour():
     except Exception as e:
         print(e)
         return get_hour()
-    if (hour < 0 or hour > 24):
-        print("only values 0-24 pls")
+    if (hour < 0 or hour > 23):
+        print("only values 0-23 pls")
         return get_hour()
     return hour
 
@@ -50,16 +51,17 @@ if __name__ == "__main__":
     # load old data
     try:
         with open(JSON_FILE) as json_data:
-            p_start = json.load(json_data)["p_start"]
-            p_end = json.load(json_data)["p_end"]
-            t_start = json.load(json_data)["t_start"]
-            t_end = json.load(json_data)["t_end"]
+            dec_data = json.load(json_data)
+            p_start = dec_data["p_start"]
+            p_end = dec_data["p_end"]
+            t_start = dec_data["t_start"]
+            t_end = dec_data["t_end"]
     except Exception as e:
-        #print(e)
+        print(e)
         p_start = "0:00"
-        p_end = "24:00"
+        p_end = "23:59"
         t_start = "0:00"
-        t_end = "24:00"
+        t_end = "23:59"
     
     clearConsole()
     print("Current settings:\np_start: {}\np_end: {}\nt_start: {}\nt_end: {}\n".format(p_start, p_end, t_start, t_end))

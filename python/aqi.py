@@ -247,9 +247,9 @@ def turn_shelly_on(mode):
     except Exception as e:
         print(e)
         p_start = "0:00"
-        p_end = "24:00"
+        p_end = "23:59"
         t_start = "0:00"
-        t_end = "24:00"
+        t_end = "23:59"
     # turn into hours and minutes
     p_start_hour, sep, p_start_minutes = p_start.partition(":")
     p_end_hour, sep, p_end_minutes = p_end.partition(":")

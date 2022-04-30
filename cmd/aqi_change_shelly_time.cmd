@@ -1,4 +1,4 @@
-
+@echo off
 SET user=smoke
 SET ip=192.168.0.1
 SET pw=password
