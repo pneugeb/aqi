@@ -180,7 +180,7 @@ def cmd_query_data():
     d = read_response()
     if DEBUG:
         print(d)
-    values = []
+    values = [0, 0]
     # for some reason d[1] is viewed as decimal int not hex; 192 == \xc0
     if d[1] == 192:
         values = process_data(d)
@@ -508,7 +508,8 @@ def main():
             calc_pm25_avg()
             calc_pm10_avg()
             # if lamp is off, calc averages and check if lamp needs to be turned on
-            if (pm25 >= (2 * pm25_avg) or pm10 >= (2 * pm10_avg)):
+            #   only turn on for pm25, pm10 values tend to fluctuate quite a bit
+            if (pm25 >= (2 * pm25_avg)):
                 print("Limit exceeded\npm25_avg = {}\npm10_avg = {}\nturning lamps on".format(
                     pm25_avg, pm10_avg
                     )
