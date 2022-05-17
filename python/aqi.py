@@ -529,6 +529,7 @@ def main():
                 )
         
         # save to sqlite3 db
+        # logs time in UTC i think: 5 - 21 o'clock in DB
         cur.execute('''INSERT INTO data (date,pm25,pm10,lps_temp,lps_pressure,dht_temp,dht_humidity) 
             VALUES (datetime('now'), ?, ?, ?, ?, ?, ?)''', 
             (pm25, pm10, lps_temp, lps_pressure, dht_temp, dht_humidity)

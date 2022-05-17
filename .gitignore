@@ -1,3 +1,4 @@
 /html/aqi.json
 *.log*
 python/shelly_active_times.json
+python/aqi.db
