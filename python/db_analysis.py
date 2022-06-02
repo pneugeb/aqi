@@ -9,6 +9,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 
+DEBUG = 1
+
 # Initialize sqlite3 db
 con = sqlite3.connect("aqi.db")
 cur = con.cursor()
@@ -57,7 +59,7 @@ xticks.pop(0)
 '''
 Wie es funktioniert:
 benutzt modifizierte und verbesserte pm_25_avg functionen wie im prod, die avg_10 lists [] werden zurückgesetzt, 
-wenn der Zeitunterschied zwischen zwei Messungen >4min ist. Sonst schlägt die "pm25 >= (2 * pm25_avg)"
+wenn der Zeitunterschied zwischen zwei Messungen >3min ist. Sonst schlägt die "pm25 >= (2 * pm25_avg)"
 an und es wird für die Minute im time_and_spikes dict +1, am Ende wird ein Diagramm erstellt.
 '''
 
@@ -116,6 +118,46 @@ def check_if_spike(pm25, pm10, still_high):
     else:
         return False, False
 
+# remove days where more than 20min are missing
+#   checks if difference between two measurements is >3min and then stars counting. If day has >20min missing it will discard that day
+def remove_incomplete_days(rows):
+    temp_rows = []
+    cleaned_up_rows = []
+    current_monthday = 101
+    hourminute = datetime(2022, 1, 1, 1, 1)
+    extra_time = 0
+    for row in rows:
+        # used to check if new day
+        last_monthday = current_monthday
+        current_monthday = int(row[1][5:10].replace("-", ""))
+        # used to check time differences
+        last_hourminute = hourminute
+        hour = int(row[1][11:13])
+        minute = int(row[1][14:16])
+        hourminute = datetime(2022, 1, 1, hour, minute)
+
+        # add row to temp
+        temp_rows.append(row)
+
+        # check if new day
+        if (current_monthday > last_monthday):
+            # check if less than 20min missing, if so add rows from temp to cleaned_up
+            # also check if more than 
+            if (extra_time < (20 * 60)):
+                for row in temp_rows:
+                    cleaned_up_rows.append(row)
+                print(current_monthday)
+            temp_rows = []
+            extra_time = 0
+            continue
+
+        # check if difference between measurements >3min
+        if ((hourminute - last_hourminute).total_seconds() > 180):
+            extra_time += (hourminute - last_hourminute).total_seconds()
+        
+    return cleaned_up_rows
+
+
 # main
 if __name__ == "__main__":
     print("### starting ###")
@@ -126,6 +168,7 @@ if __name__ == "__main__":
     days = 0
     spikes = 0
     spikes_per_day = 0
+    rows = remove_incomplete_days(rows)
     for row in rows:
         pm25 = row[3]
         pm10 = row[4]
@@ -147,7 +190,7 @@ if __name__ == "__main__":
         if (hourminute < datetime(2022, 1, 1, 5, 0) or hourminute > datetime(2022, 1, 1, 20, 59)):
             continue
         # reset lists if there has been a pause of more than 4min from last measurement or if new day
-        if ((hourminute - last_hourminute).total_seconds() > 240):
+        if ((hourminute - last_hourminute).total_seconds() > 180):
             #print((hourminute - last_hourminute).total_seconds())
             pm25_avg_10 = []
             pm10_avg_10 = []
@@ -155,6 +198,10 @@ if __name__ == "__main__":
         if is_spike:
             time_and_spikes[datetime(2022, 1, 1, hour, minute)] += 1
             spikes += 1
+            # write db id of spike
+            if DEBUG:
+                with open("db_ana_DEBUG.txt", "a") as file:
+                    file.write("{}\n".format(row[0]))
     
     # add 5 values into one, means 5 minutes bars
     list_x = []

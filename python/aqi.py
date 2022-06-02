@@ -8,6 +8,7 @@ import board, adafruit_lps2x, adafruit_dht
 import sqlite3, os
 import requests
 from requests.auth import HTTPBasicAuth
+import traceback
 
 
 # init lists for air quality calculation
@@ -454,7 +455,11 @@ def main():
             
             # calculates seconds till next morning start time
             sec_till_start_today = int((datetime.datetime(dt_now.year, dt_now.month, dt_now.day, active_hour_start) - dt_now).total_seconds())
-            sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, dt_now.month, (dt_now.day + 1), active_hour_start) - dt_now).total_seconds())
+            # test if dt_now.day + 1 is out of range, if so go to new month
+            try:
+                sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, dt_now.month, (dt_now.day + 1), active_hour_start) - dt_now).total_seconds())
+            except ValueError:
+                sec_till_start_tomorrow = int((datetime.datetime(dt_now.year, (dt_now.month + 1), 1, active_hour_start) - dt_now).total_seconds())
             sleeptime = sec_till_start_today if (dt_now.hour < active_hour_start) else sec_till_start_tomorrow
             # convert seconds to hh.mm.ss
             print("Sleeping for " + str(datetime.timedelta(seconds=sleeptime)) + "h")
@@ -578,6 +583,7 @@ if __name__ == "__main__":
     except Exception as e:
         print("\n\n== RIP ==\n")
         print(e)
+        traceback.print_exc()
         # if it crashed turns lamps on, try this regularly if wifi can't connect
         while True:
             turn_shelly_on(crashed_mode)

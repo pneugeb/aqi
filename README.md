@@ -17,3 +17,6 @@ to be able to be accessed by web server
 [] read lps25 and dht while sds011 gets ready for speedup
 [] improve wifi connection stability
 [] db_analysis: analyse daily patters eg if smoke at 8 also at 10
+[]db_analysis: only use days that have 100% data, results will be spoofed if some hours missing
+[] maybe dont turn on while building list, so that if first measurment is atypically low it wont stay on forever
+[] why it keep stopping
