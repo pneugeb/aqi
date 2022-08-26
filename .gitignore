@@ -2,3 +2,4 @@
 *.log*
 python/shelly_active_times.json
 python/aqi.db
+python/download aqi.db.txt

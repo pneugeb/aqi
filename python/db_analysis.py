@@ -124,8 +124,9 @@ def remove_incomplete_days(rows):
     temp_rows = []
     cleaned_up_rows = []
     current_monthday = 101
-    hourminute = datetime(2022, 1, 1, 1, 1)
+    hourminute = datetime(2022, 1, 1, 5, 0)
     extra_time = 0
+
     for row in rows:
         # used to check if new day
         last_monthday = current_monthday
@@ -136,23 +137,37 @@ def remove_incomplete_days(rows):
         minute = int(row[1][14:16])
         hourminute = datetime(2022, 1, 1, hour, minute)
 
-        # add row to temp
-        temp_rows.append(row)
-
         # check if new day
         if (current_monthday > last_monthday):
+            print(current_monthday)
+            # check time diff from last measurement yesterday
+            if ((datetime(2022, 1, 1, 21, 0) - last_hourminute).total_seconds() > 120):
+                print("last measurement: {}s at {}".format((datetime(2022, 1, 1, 21, 0) - last_hourminute).total_seconds(), hourminute))
+                extra_time += (datetime(2022, 1, 1, 21, 0) - last_hourminute).total_seconds()
+
             # check if less than 20min missing, if so add rows from temp to cleaned_up
             # also check if more than 
             if (extra_time < (20 * 60)):
                 for row in temp_rows:
                     cleaned_up_rows.append(row)
-                print(current_monthday)
+            else:
+                print("too much extra time sir: {}s".format(extra_time))
             temp_rows = []
             extra_time = 0
-            continue
+
+            # check if time missing from first measurement
+            diff_start_of_day = (hourminute - datetime(2022, 1, 1, 5, 0)).total_seconds()
+            if (diff_start_of_day >= 120):
+                print("first measurement: {}s at {}".format(diff_start_of_day, hourminute))
+                extra_time += diff_start_of_day
+
+        # add row to temp
+        temp_rows.append(row)  
 
         # check if difference between measurements >3min
+        #   if a new day this will be negative, thus extra time wont be added twice
         if ((hourminute - last_hourminute).total_seconds() > 180):
+            print("in middle: {}s at {}".format((hourminute - last_hourminute).total_seconds(), hourminute))
             extra_time += (hourminute - last_hourminute).total_seconds()
         
     return cleaned_up_rows
@@ -198,10 +213,7 @@ if __name__ == "__main__":
         if is_spike:
             time_and_spikes[datetime(2022, 1, 1, hour, minute)] += 1
             spikes += 1
-            # write db id of spike
-            if DEBUG:
-                with open("db_ana_DEBUG.txt", "a") as file:
-                    file.write("{}\n".format(row[0]))
+
     
     # add 5 values into one, means 5 minutes bars
     list_x = []

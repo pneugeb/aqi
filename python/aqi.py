@@ -523,6 +523,8 @@ def main():
                 # pop last element, which is measurment of high aqi
                 pm25_avg_10.pop()
                 pm10_avg_10.pop()
+                calc_pm25_avg()
+                calc_pm10_avg()
                 # is_on switch sodass erst wieder aus wenn alte werte erreicht werden
                 lamp_is_on = 1
                 sds011_low_twice_in_row = 0
